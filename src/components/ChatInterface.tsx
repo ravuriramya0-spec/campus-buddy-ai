@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Send, Bot, User, Clock, MapPin, BookOpen, Utensils, Building2 } from 'lucide-react';
+import { Send, Bot, User, Clock, MapPin, BookOpen, Utensils, Building2, Mic, MicOff, Lightbulb } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -23,6 +23,8 @@ const quickReplies: QuickReply[] = [
   { text: "Class schedule", icon: <Clock className="w-4 h-4" />, category: "schedule" },
   { text: "Campus map", icon: <MapPin className="w-4 h-4" />, category: "facilities" },
   { text: "Lab booking", icon: <Building2 className="w-4 h-4" />, category: "facilities" },
+  { text: "Event calendar", icon: <Clock className="w-4 h-4" />, category: "events" },
+  { text: "Book study room", icon: <BookOpen className="w-4 h-4" />, category: "booking" },
 ];
 
 // Mock responses for demonstration
@@ -31,20 +33,24 @@ const mockResponses: Record<string, string> = {
   "dining menu": "🍽️ Today's dining options:\n\n**Main Cafeteria:**\n• Grilled chicken with rice\n• Vegetarian pasta\n• Fresh salad bar\n\n**Food Court:**\n• Pizza corner (11 AM - 9 PM)\n• Sandwich station (8 AM - 6 PM)\n• Coffee shop (7 AM - 8 PM)",
   "class schedule": "📅 To check your class schedule:\n1. Log into the student portal\n2. Navigate to 'Academic' → 'Schedule'\n3. Select current semester\n\nFor quick access, download the Campus Mobile app for real-time schedule updates and notifications.",
   "campus map": "🗺️ Campus navigation help:\n• Interactive map: campus.edu/map\n• Main buildings: Academic Center (AC), Library (LB), Student Center (SC)\n• Parking: Lots A-D available, Lot A closest to main campus\n• Emergency phones located every 100 meters on main pathways",
-  "lab booking": "🔬 Lab booking system:\n• Computer labs: Book through IT portal\n• Science labs: Contact department directly\n• Available slots: Check real-time availability\n• Booking window: Up to 7 days in advance\n\nNeed help with specific lab requirements? Let me know which type of lab you need!"
+  "lab booking": "🔬 Lab booking system:\n• Computer labs: Book through IT portal\n• Science labs: Contact department directly\n• Available slots: Check real-time availability\n• Booking window: Up to 7 days in advance\n\nNeed help with specific lab requirements? Let me know which type of lab you need!",
+  "event calendar": "📅 Upcoming campus events:\n\n**This Week:**\n• React Workshop - Jan 15, 2:00 PM (CS Lab 2)\n• Basketball Championship - Jan 18, 7:00 PM (Sports Complex)\n• Career Fair - Jan 25, 10:00 AM (Student Center)\n\nFor more events and registration, check the Events section!",
+  "book study room": "📚 Study room booking:\n• Available rooms: Study Room A, B, C in Library Level 2\n• Booking hours: 8:00 AM - 10:00 PM\n• Maximum duration: 4 hours per booking\n• Book up to 7 days in advance\n\nWould you like me to check availability for today?"
 };
 
 export const ChatInterface: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: "Hello! I'm your Smart Campus Assistant. I can help you with class schedules, library services, dining options, campus facilities, and administrative procedures. What would you like to know?",
+      content: "Hello! I'm your Smart Campus Assistant with AI-powered features. I can help you with:\n\n🎓 **Personalized Services** - Class schedules, grades, course info\n📚 **Library & Booking** - Study rooms, lab reservations, resources\n🗺️ **Interactive Campus Map** - Navigate, find locations, real-time info\n📅 **Events & News** - Campus events, announcements, reminders\n🍽️ **Dining Services** - Menus, hours, dietary preferences\n💬 **Voice Commands** - Try speaking your questions!\n\nWhat would you like to know about campus life?",
       sender: 'assistant',
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -65,8 +71,8 @@ export const ChatInterface: React.FC = () => {
       }
     }
     
-    // Generic helpful response
-    return "I'm here to help with campus information! I can assist you with:\n\n🕒 **Schedules** - Class times, exam dates, events\n📚 **Library** - Hours, book search, study rooms\n🍽️ **Dining** - Menus, hours, meal plans\n🏢 **Facilities** - Labs, sports, parking, health center\n📋 **Admin** - Forms, registration, procedures\n\nTry asking about library hours, dining options, or use the quick buttons below!";
+    // Enhanced AI response with smart suggestions
+    return "I'm here to help with campus information! I can assist you with:\n\n🕒 **Schedules** - Class times, exam dates, events\n📚 **Library** - Hours, book search, study rooms, booking\n🍽️ **Dining** - Menus, hours, dietary options\n🏢 **Facilities** - Labs, sports, parking, navigation\n📋 **Admin** - Forms, registration, procedures\n🎯 **Personalized** - Login for custom schedules & favorites\n🗺️ **Campus Map** - Interactive navigation & real-time info\n\n💡 **Smart Suggestions:** Based on the time of day, you might want to check dining hours or book a study room for tonight!\n\nTry asking about library hours, upcoming events, or use the quick buttons below!";
   };
 
   const handleSendMessage = async (content: string) => {
@@ -175,25 +181,41 @@ export const ChatInterface: React.FC = () => {
         </div>
       </div>
 
-      {/* Input */}
+      {/* Enhanced Input with Voice */}
       <form onSubmit={handleSubmit} className="p-4 border-t border-border/20">
         <div className="flex gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask me anything about campus..."
+            placeholder={isListening ? "Listening..." : "Ask me anything about campus..."}
             className="flex-1 bg-secondary/30 border-border/30 focus:border-primary/50 focus:bg-background transition-all duration-200"
-            disabled={isTyping}
+            disabled={isTyping || isListening}
           />
+          <Button 
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={toggleVoiceInput}
+            className={`${isListening ? 'bg-red-500 hover:bg-red-600 text-white' : ''} transition-all duration-200`}
+            disabled={isTyping}
+          >
+            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </Button>
           <Button 
             type="submit" 
             size="icon"
-            disabled={!input.trim() || isTyping}
+            disabled={!input.trim() || isTyping || isListening}
             className="bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all duration-200"
           >
             <Send className="w-4 h-4" />
           </Button>
         </div>
+        {isListening && (
+          <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+            Voice input active - speak your question
+          </p>
+        )}
       </form>
     </Card>
   );
